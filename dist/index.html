@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>ビンゴ</title>
+    <script src="audio.min.js"></script>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-size: 2rem;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            background-image: url("bgimage.jpg");
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: right;
+            display: flex;
+        }
+
+        #left {
+            flex-basis: 50%;
+            padding: 2em;
+            text-align: center;
+            display: table-cell;
+            vertical-align: middle;
+            box-sizing: border-box;
+            height: 100%;
+        }
+
+        #display {
+            font-size: 25vw;
+            text-align: center;
+            color: #fff;
+            text-shadow: 0.1em 0.1em 0.1em #850A04, -0.1em 0.1em 0.1em #850A04, 0.1em -0.1em 0.1em #850A04, -0.1em -0.1em 0.1em #850A04;
+        }
+
+        #log {
+            flex-basis: 50%;
+            list-style: none;
+            margin: 0;
+            padding: 2em;
+            box-sizing: border-box;
+        }
+
+        #log li {
+            background-color: #fff;
+            float: left;
+            line-height: 1.8em;
+            height: 2em;
+            width: 2em;
+            text-align: center;
+            border: 5px solid #308505;
+            color: #850A04;
+            margin: 0.2em;
+            box-sizing: border-box;
+            border-radius: 50%;
+        }
+
+        #button {
+            outline: none;
+            font-size: 2em;
+            color: #fff;
+            border: none;
+            position: relative;
+            display: inline-block;
+            padding: 0.25em 0.5em;
+            text-decoration: none;
+            background: #308505; /*背景色*/
+            border-bottom: solid 2px #1d4d03; /*少し濃い目の色に*/
+            border-radius: 4px; /*角の丸み*/
+            box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.2), 0 2px 2px rgba(0, 0, 0, 0.19);
+            font-weight: bold;
+        }
+
+        #button:active {
+            border-bottom: solid 2px #308505;
+            box-shadow: 0 0 2px rgba(0, 0, 0, 0.30);
+        }
+
+        #reset {
+            background: #fff;
+            outline: none;
+            border: none;
+            position: absolute;
+            left: 0;
+            bottom: 0;
+        }
+    </style>
+</head>
+<body>
+<div id="left">
+    <div id="display">0</div>
+    <button id="button">PUSH</button>
+    <audio src="drum-roll.mp3" id="drum" loop></audio>
+    <audio src="roll-finish.mp3" id="finish"></audio>
+    <button id="reset">RESET</button>
+</div>
+<ul id="log"></ul>
+<script>
+  const storageKey = "displayList";
+  const displayContainer = document.getElementById('display');
+  const logContainer = document.getElementById('log');
+  const button = document.getElementById('button');
+  const displayList = [];
+  const addLog = n => {
+    const item = document.createElement('li');
+    item.style.borderColor = getRandomColor();
+    displayList.push(n);
+    item.innerText = n;
+    logContainer.appendChild(item);
+  };
+  if (localStorage.getItem(storageKey)) {
+    JSON.parse(localStorage.getItem(storageKey)).forEach(addLog);
+  }
+  const list = Array.from(Array(99).keys()).map(i => i + 1).filter(i => displayList.indexOf(i) === -1);
+  let interval = null;
+  let index = 0;
+  let audio;
+  let finish;
+
+  function getRandomColor() {
+    const Hp = Math.random() * 360 / 60;
+    // const S = 1, V = 1;
+    const X = 1 - Math.abs(Hp % 2 - 1);
+    const colors = (() => {
+      switch (Math.floor(Hp)) {
+        case 0:
+          return [1, X, 0];
+        case 1:
+          return [X, 1, 0];
+        case 2:
+          return [0, 1, X];
+        case 3:
+          return [0, X, 1];
+        case 4:
+          return [X, 0, 1];
+        case 5:
+          return [1, 0, X];
+        default:
+          return [0, 0, 0];
+      }
+    })()
+    // .map(c => (c * S - S + 1) * V)
+        .map(c => Math.floor(c * 255));
+    return 'rgb(' + colors.join(",") + ')';
+  }
+
+  audiojs.events.ready(function () {
+    const a = audiojs.createAll();
+    audio = a[0];
+    finish = a[1];
+    document.getElementById('audiojs_wrapper0').style.visibility = 'hidden';
+    document.getElementById('audiojs_wrapper1').style.visibility = 'hidden';
+    button.addEventListener('click', () => {
+      if (interval == null) {
+        finish.pause();
+        finish.wrapper.firstChild.currentTime = 0;
+        audio.play();
+        if (list.length === 0) {
+          if (confirm("終了しました. もう一度最初から始めますか？（データが削除されます）")) {
+            reset();
+          }
+          return;
+        }
+        interval = setInterval(() => {
+          index = Math.floor(Math.random() * list.length);
+          displayContainer.innerText = "" + list[index];
+        }, 100)
+      } else {
+        clearInterval(interval);
+        addLog(list[index]);
+        list.splice(index, 1);
+        interval = null;
+        localStorage.setItem(storageKey, JSON.stringify(displayList));
+        audio.pause();
+        finish.play();
+      }
+    });
+  });
+  const reset = () => {
+    localStorage.removeItem(storageKey);
+    location.reload();
+  };
+  document.getElementById('reset').addEventListener('click', () => confirm("データが削除されますがよろしいですか？") && reset());
+</script>
+</body>
+</html>
